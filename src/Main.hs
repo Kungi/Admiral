@@ -6,6 +6,9 @@ import Graphics.Vty.Widgets.All
 import System.Exit
 import System.FilePath.Posix
 
+data Orientation = Vertical | Horizontal deriving (Eq)
+
+currentOrientation = Horizontal
 
 main :: IO ()
 main = do
@@ -14,10 +17,12 @@ main = do
 
   fg <- mergeFocusGroups fg1 fg2
 
-  mainBox <- hBox (dirBrowserWidget browser1) (dirBrowserWidget browser2)
+  horizontalBox <- hBox (dirBrowserWidget browser1) (dirBrowserWidget browser2)
+  verticalBox <- vBox (dirBrowserWidget browser1) (dirBrowserWidget browser2)
 
   c <- newCollection
-  switchToMain <- addToCollection c mainBox fg
+  horizontalLayout <- addToCollection c horizontalBox fg
+  verticalLayout <- addToCollection c verticalBox fg
 
   (dirBrowserWidget browser1) `onKeyPressed` (handleBsKey browser1)
   (dirBrowserWidget browser2) `onKeyPressed` (handleBsKey browser2)
@@ -30,11 +35,19 @@ main = do
                                         fg' <- mergeFocusGroups fgT fgDialog
 
                                         dlg `onDialogAccept` (const exitSuccess)
-                                        dlg `onDialogCancel` (const switchToMain)
+                                        dlg `onDialogCancel` (const horizontalLayout)
 
                                         switchToDialog <- addToCollection c (dialogWidget dlg) fg'
                                         switchToDialog
                                         return True
+                                else return False
+
+  fg `onKeyPressed` \_ key _ -> if key == KChar '|'
+                                then if currentOrientation == Horizontal
+                                     then do verticalLayout
+                                             return True
+                                     else do horizontalLayout
+                                             return True
                                 else return False
 
   runUi c $ defaultContext { focusAttr = white `on` blue }
