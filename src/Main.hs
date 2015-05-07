@@ -5,13 +5,16 @@ import Graphics.Vty
 import Graphics.Vty.Widgets.All
 import System.Exit
 import System.FilePath.Posix
+import Control.Concurrent.STM.TVar
+import Control.Monad.STM
 
 data Orientation = Vertical | Horizontal deriving (Eq)
 
-currentOrientation = Horizontal
-
 main :: IO ()
 main = do
+
+  currentOrientation <- newTVarIO Vertical
+
   (browser1, fg1) <- newDirBrowser defaultBrowserSkin
   (browser2, fg2) <- newDirBrowser defaultBrowserSkin
 
@@ -43,18 +46,29 @@ main = do
                                 else return False
 
   fg `onKeyPressed` \_ key _ -> if key == KChar '|'
-                                then if currentOrientation == Horizontal
-                                     then do verticalLayout
-                                             return True
-                                     else do horizontalLayout
-                                             return True
+                                then do
+                                  orient <- atomically $ readTVar currentOrientation
+
+                                  case orient of
+                                       Horizontal -> do verticalLayout
+                                                        atomically $ modifyTVar currentOrientation swapOrientation
+                                                        return True
+                                       Vertical   -> do horizontalLayout
+                                                        atomically $ modifyTVar currentOrientation swapOrientation
+                                                        return True
                                 else return False
 
   runUi c $ defaultContext { focusAttr = white `on` blue }
 
+swapOrientation :: Orientation -> Orientation
+swapOrientation Vertical = Horizontal
+swapOrientation Horizontal = Vertical
+
 handleBsKey :: DirBrowser -> Widget DirBrowserWidgetType -> Key -> [Modifier] -> IO Bool
-handleBsKey browser _ key _ =  if key ==KBS
+handleBsKey browser _ key _ =  if key == KBS
                                then do path <- getDirBrowserPath browser
-                                       setDirBrowserPath browser (joinPath (init (splitPath path)))
+                                       setDirBrowserPath
+                                         browser
+                                         (joinPath (init (splitPath path)))
                                        return True
                                else return False
