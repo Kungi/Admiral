@@ -10,6 +10,20 @@ import Control.Monad.STM
 
 data Orientation = Vertical | Horizontal deriving (Eq)
 
+newQuitDialog collection horizontalLayout =
+  do fgT <- newFocusGroup
+     t <- plainText "Close KungCommander"
+     _ <- addToFocusGroup fgT t
+     (dlg, fgDialog) <- newDialog t "Close"
+     fg' <- mergeFocusGroups fgT fgDialog
+
+     dlg `onDialogAccept` (const exitSuccess)
+     dlg `onDialogCancel` (const horizontalLayout)
+
+     switchToDialog <- addToCollection collection (dialogWidget dlg) fg'
+     switchToDialog
+     return True
+
 main :: IO ()
 main = do
   currentOrientation <- newTVarIO Horizontal
@@ -31,18 +45,7 @@ main = do
 
   fg `onKeyPressed` \_ key _ ->
     if key == KChar 'q' || key == KChar 'Q'
-    then do fgT <- newFocusGroup
-            t <- plainText "Close KungCommander"
-            _ <- addToFocusGroup fgT t
-            (dlg, fgDialog) <- newDialog t "Close"
-            fg' <- mergeFocusGroups fgT fgDialog
-
-            dlg `onDialogAccept` (const exitSuccess)
-            dlg `onDialogCancel` (const horizontalLayout)
-
-            switchToDialog <- addToCollection c (dialogWidget dlg) fg'
-            switchToDialog
-            return True
+    then newQuitDialog c horizontalLayout
     else return False
 
   fg `onKeyPressed` handleOnBSKeyPressed currentOrientation horizontalLayout verticalLayout
