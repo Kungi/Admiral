@@ -12,8 +12,7 @@ data Orientation = Vertical | Horizontal deriving (Eq)
 
 main :: IO ()
 main = do
-
-  currentOrientation <- newTVarIO Vertical
+  currentOrientation <- newTVarIO Horizontal
 
   (browser1, fg1) <- newDirBrowser defaultBrowserSkin
   (browser2, fg2) <- newDirBrowser defaultBrowserSkin
@@ -25,39 +24,28 @@ main = do
 
   c <- newCollection
   horizontalLayout <- addToCollection c horizontalBox fg
-  verticalLayout <- addToCollection c verticalBox fg
+  verticalLayout  <- addToCollection c verticalBox fg
 
   (dirBrowserWidget browser1) `onKeyPressed` (handleBsKey browser1)
   (dirBrowserWidget browser2) `onKeyPressed` (handleBsKey browser2)
 
-  fg `onKeyPressed` \_ key _ -> if key == KChar 'q' || key == KChar 'Q'
-                                then do fgT <- newFocusGroup
-                                        t <- plainText "Close KungCommander"
-                                        _ <- addToFocusGroup fgT t
-                                        (dlg, fgDialog) <- newDialog t "Close"
-                                        fg' <- mergeFocusGroups fgT fgDialog
+  fg `onKeyPressed` \_ key _ ->
+    if key == KChar 'q' || key == KChar 'Q'
+    then do fgT <- newFocusGroup
+            t <- plainText "Close KungCommander"
+            _ <- addToFocusGroup fgT t
+            (dlg, fgDialog) <- newDialog t "Close"
+            fg' <- mergeFocusGroups fgT fgDialog
 
-                                        dlg `onDialogAccept` (const exitSuccess)
-                                        dlg `onDialogCancel` (const horizontalLayout)
+            dlg `onDialogAccept` (const exitSuccess)
+            dlg `onDialogCancel` (const horizontalLayout)
 
-                                        switchToDialog <- addToCollection c (dialogWidget dlg) fg'
-                                        switchToDialog
-                                        return True
-                                else return False
+            switchToDialog <- addToCollection c (dialogWidget dlg) fg'
+            switchToDialog
+            return True
+    else return False
 
-  fg `onKeyPressed` \_ key _ -> if key == KChar '|'
-                                then do
-                                  orient <- atomically $ readTVar currentOrientation
-
-                                  case orient of
-                                       Horizontal -> do verticalLayout
-                                                        atomically $ modifyTVar currentOrientation swapOrientation
-                                                        return True
-                                       Vertical   -> do horizontalLayout
-                                                        atomically $ modifyTVar currentOrientation swapOrientation
-                                                        return True
-                                else return False
-
+  fg `onKeyPressed` handleOnBSKeyPressed currentOrientation horizontalLayout verticalLayout
   runUi c $ defaultContext { focusAttr = white `on` blue }
 
 swapOrientation :: Orientation -> Orientation
@@ -72,3 +60,17 @@ handleBsKey browser _ key _ =  if key == KBS
                                          (joinPath (init (splitPath path)))
                                        return True
                                else return False
+
+handleOnBSKeyPressed currentOrientation horizontalLayout verticalLayout _ key _ =
+  if key == KChar '|'
+  then do
+    orient <- atomically $ readTVar currentOrientation
+
+    case orient of
+     Horizontal -> do verticalLayout
+                      atomically $ modifyTVar currentOrientation swapOrientation
+                      return True
+     Vertical   -> do horizontalLayout
+                      atomically $ modifyTVar currentOrientation swapOrientation
+                      return True
+  else return False
