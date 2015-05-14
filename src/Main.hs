@@ -8,7 +8,10 @@ import System.FilePath.Posix
 import Control.Concurrent.STM.TVar
 import Control.Monad.STM
 
-data Orientation = Vertical | Horizontal deriving (Eq)
+data Orientation = Vertical | Horizontal deriving (Eq, Show)
+
+data ProgramState = ProgramState { currentOrientation :: Orientation
+                                 } deriving Show
 
 newQuitDialog collection horizontalLayout =
   do fgT <- newFocusGroup
@@ -26,7 +29,7 @@ newQuitDialog collection horizontalLayout =
 
 main :: IO ()
 main = do
-  currentOrientation <- newTVarIO Horizontal
+  currentState <- newTVarIO $ ProgramState { currentOrientation = Horizontal }
 
   (browser1, fg1) <- newDirBrowser defaultBrowserSkin
   (browser2, fg2) <- newDirBrowser defaultBrowserSkin
@@ -48,12 +51,12 @@ main = do
     then newQuitDialog c horizontalLayout
     else return False
 
-  fg `onKeyPressed` handleOnBSKeyPressed currentOrientation horizontalLayout verticalLayout
+  fg `onKeyPressed` handleOnBSKeyPressed currentState horizontalLayout verticalLayout
   runUi c $ defaultContext { focusAttr = white `on` blue }
 
-swapOrientation :: Orientation -> Orientation
-swapOrientation Vertical = Horizontal
-swapOrientation Horizontal = Vertical
+swapOrientation :: ProgramState -> ProgramState
+swapOrientation (ProgramState Vertical) = ProgramState Horizontal
+swapOrientation (ProgramState Horizontal) = ProgramState Vertical
 
 handleBsKey :: DirBrowser -> Widget DirBrowserWidgetType -> Key -> [Modifier] -> IO Bool
 handleBsKey browser _ key _ =  if key == KBS
@@ -64,16 +67,16 @@ handleBsKey browser _ key _ =  if key == KBS
                                        return True
                                else return False
 
-handleOnBSKeyPressed currentOrientation horizontalLayout verticalLayout _ key _ =
+handleOnBSKeyPressed currentState horizontalLayout verticalLayout _ key _ =
   if key == KChar '|'
   then do
-    orient <- atomically $ readTVar currentOrientation
+    state <- atomically $ readTVar currentState
 
-    case orient of
-     Horizontal -> do verticalLayout
-                      atomically $ modifyTVar currentOrientation swapOrientation
-                      return True
-     Vertical   -> do horizontalLayout
-                      atomically $ modifyTVar currentOrientation swapOrientation
-                      return True
+    case state of
+     (ProgramState Horizontal) -> do verticalLayout
+                                     atomically $ modifyTVar currentState swapOrientation
+                                     return True
+     (ProgramState Vertical)  -> do horizontalLayout
+                                    atomically $ modifyTVar currentState swapOrientation
+                                    return True
   else return False
