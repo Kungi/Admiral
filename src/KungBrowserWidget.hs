@@ -2,7 +2,7 @@
 -- |This module provides a directory browser interface widget.  For
 -- full details, please see the Vty-ui User's Manual.
 module KungBrowserWidget
-    (DirBrowser(dirBrowserWidget, dirBrowserPathDisplay, dirBrowserFileInfo, dirBrowserHeader)
+    (DirBrowser(..)
     , BrowserSkin(..)
     , DirBrowserWidgetType
     , newDirBrowser
@@ -52,6 +52,7 @@ data DirBrowser = DirBrowser { dirBrowserWidget :: Widget DirBrowserWidgetType
                              , dirBrowserHeader :: Widget (Box (Box FormattedText FormattedText) HFill)
                              , dirBrowserSelectionMap :: IORef (Map.Map FilePath Int)
                              , dirBrowserFileInfo :: Widget FormattedText
+                             , dirBrowserFooter :: Widget (Box (Box (Box FormattedText FormattedText) HFill) FormattedText)
                              , dirBrowserSkin :: BrowserSkin
                              , dirBrowserErrorWidget :: Widget FormattedText
                              , dirBrowserChooseHandlers :: Handlers FilePath
@@ -158,6 +159,7 @@ newDirBrowser bSkin = do
                      , dirBrowserHeader = header
                      , dirBrowserSelectionMap = r2
                      , dirBrowserFileInfo = fileInfo
+                     , dirBrowserFooter = footer
                      , dirBrowserSkin = bSkin
                      , dirBrowserChooseHandlers = hs
                      , dirBrowserCancelHandlers = chs

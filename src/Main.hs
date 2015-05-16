@@ -61,18 +61,24 @@ main = do
     else return False
 
   fg `W.onKeyPressed` handleOnBSKeyPressed currentState horizontalLayout verticalLayout
-  W.runUi c $ W.defaultContext { W.focusAttr = white `W.on` blue }
+  W.runUi c $ W.defaultContext { W.focusAttr = white `W.on` green }
 
 swapOrientation :: ProgramState -> ProgramState
 swapOrientation (ProgramState Vertical) = ProgramState Horizontal
 swapOrientation (ProgramState Horizontal) = ProgramState Vertical
 
 handleGainFocus :: DirBrowser -> W.Widget DirBrowserWidgetType -> IO ()
-handleGainFocus browser widget = do W.setNormalAttribute (dirBrowserHeader browser) (green `W.on` black)
+handleGainFocus browser widget = do W.setFocusAttribute (dirBrowserHeader browser) (green `W.on` black)
+                                    W.setNormalAttribute (dirBrowserHeader browser) (green `W.on` black)
+                                    W.setNormalAttribute (dirBrowserFooter browser) (green `W.on` black)
+                                    W.setFocusAttribute (dirBrowserFooter browser) (green `W.on` black)
                                     return ()
 
 handleLoseFocus :: DirBrowser -> W.Widget DirBrowserWidgetType -> IO ()
 handleLoseFocus browser widget = do W.setNormalAttribute (dirBrowserHeader browser) (white `W.on` blue)
+                                    W.setFocusAttribute (dirBrowserHeader browser) (white `W.on` blue)
+                                    W.setNormalAttribute (dirBrowserFooter browser) (white `W.on` black)
+                                    W.setFocusAttribute (dirBrowserFooter browser) (white `W.on` black)
                                     return ()
 
 handleBrowserInput :: DirBrowser -> W.Widget DirBrowserWidgetType -> Key -> [Modifier] -> IO Bool
