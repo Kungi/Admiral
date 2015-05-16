@@ -68,18 +68,21 @@ swapOrientation (ProgramState Vertical) = ProgramState Horizontal
 swapOrientation (ProgramState Horizontal) = ProgramState Vertical
 
 handleGainFocus :: DirBrowser -> W.Widget DirBrowserWidgetType -> IO ()
-handleGainFocus browser widget = do W.setFocusAttribute (dirBrowserHeader browser) (green `W.on` black)
-                                    W.setNormalAttribute (dirBrowserHeader browser) (green `W.on` black)
-                                    W.setNormalAttribute (dirBrowserFooter browser) (green `W.on` black)
-                                    W.setFocusAttribute (dirBrowserFooter browser) (green `W.on` black)
+handleGainFocus browser widget = do W.setFocusAttribute (dirBrowserHeader browser) color
+                                    W.setNormalAttribute (dirBrowserHeader browser) color
+                                    W.setNormalAttribute (dirBrowserFooter browser) color
+                                    W.setFocusAttribute (dirBrowserFooter browser) color
                                     return ()
+  where color = (green `W.on` magenta)
+
 
 handleLoseFocus :: DirBrowser -> W.Widget DirBrowserWidgetType -> IO ()
-handleLoseFocus browser widget = do W.setNormalAttribute (dirBrowserHeader browser) (white `W.on` blue)
-                                    W.setFocusAttribute (dirBrowserHeader browser) (white `W.on` blue)
-                                    W.setNormalAttribute (dirBrowserFooter browser) (white `W.on` black)
-                                    W.setFocusAttribute (dirBrowserFooter browser) (white `W.on` black)
+handleLoseFocus browser widget = do W.setNormalAttribute (dirBrowserHeader browser) color
+                                    W.setFocusAttribute (dirBrowserHeader browser) color
+                                    W.setNormalAttribute (dirBrowserFooter browser) color
+                                    W.setFocusAttribute (dirBrowserFooter browser) color
                                     return ()
+  where color = (white `W.on` blue)
 
 handleBrowserInput :: DirBrowser -> W.Widget DirBrowserWidgetType -> Key -> [Modifier] -> IO Bool
 handleBrowserInput browser _ key modifier =
