@@ -5,6 +5,7 @@ import Graphics.Vty
 import qualified Graphics.Vty.Widgets.All as W
 import KungBrowserWidget
 import System.Exit
+import qualified Data.Text as T
 import qualified System.Cmd as Cmd
 import System.FilePath.Posix
 import Control.Concurrent.STM.TVar
@@ -49,8 +50,8 @@ main = do
   state <- newTVarIO $ ProgramState { currentOrientation = Horizontal
                                     , currentLayout = horizontalLayout }
 
-  (dirBrowserWidget browser1) `W.onKeyPressed` (handleBrowserInput browser1)
-  (dirBrowserWidget browser2) `W.onKeyPressed` (handleBrowserInput browser2)
+  (dirBrowserWidget browser1) `W.onKeyPressed` (handleBrowserInput c state browser1)
+  (dirBrowserWidget browser2) `W.onKeyPressed` (handleBrowserInput c state browser2)
   browser1 `onBrowseAccept` openFile browser1
   browser2 `onBrowseAccept` openFile browser2
   (dirBrowserWidget browser1) `W.onGainFocus` handleGainFocus browser1
@@ -84,14 +85,14 @@ handleGainFocus browser widget = setHeaderFooterColor browser (green `W.on` mage
 handleLoseFocus :: DirBrowser -> W.Widget DirBrowserWidgetType -> IO ()
 handleLoseFocus browser widget = setHeaderFooterColor browser (white `W.on` blue)
 
-handleBrowserInput :: DirBrowser -> W.Widget DirBrowserWidgetType -> Key -> [Modifier] -> IO Bool
-handleBrowserInput browser _ key modifier =
+-- handleBrowserInput :: DirBrowser -> W.Widget DirBrowserWidgetType -> Key -> [Modifier] -> IO Bool
+handleBrowserInput collection state browser _ key modifier =
   case modifier of
    [MMeta] -> case key of KChar 'x' -> do reportBrowserError browser "M-x pressed"
                                           return True
                           otherwise -> return False
 
-   [MCtrl] -> case key of KChar 's' -> do filterBrowser browser "cabal"
+   [MCtrl] -> case key of KChar 's' -> do newFilterDialog collection state browser
                                           return True
                           otherwise -> return False
 
@@ -100,6 +101,28 @@ handleBrowserInput browser _ key modifier =
                            setDirBrowserPath browser (joinPath (init (splitPath path)))
                            return True
                  otherwise -> return False
+
+newFilterDialog collection state browser =
+  do fgT <- W.newFocusGroup
+     e <- W.editWidget
+     t <- W.plainText "Filter for: " W.<++> (return e)
+     _ <- W.addToFocusGroup fgT t
+
+     (dlg, fgDialog) <- W.newDialog t "Filter"
+     fg' <- W.mergeFocusGroups fgT fgDialog
+     s <- atomically $ readTVar state
+
+     e `W.onActivate` (const $ W.acceptDialog dlg)
+     dlg `W.onDialogAccept` (const $ do currentLayout s
+                                        text <- W.getEditText e
+                                        filterBrowser browser $ T.unpack text
+                                        return ())
+     dlg `W.onDialogCancel` (const $ currentLayout s)
+
+     switchToDialog <- W.addToCollection collection (W.dialogWidget dlg) fg'
+     switchToDialog
+     return True
+
 
 openFile :: DirBrowser -> FilePath -> IO ()
 openFile browser filePath = do errorCode <- Cmd.system ("open " ++ show filePath)
