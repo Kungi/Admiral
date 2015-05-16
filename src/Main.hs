@@ -127,19 +127,20 @@ newFilterDialog collection state browser =
      switchToDialog
      return True
 
-runCommandOnFile :: String -> Maybe String -> DirBrowser -> FilePath -> IO ()
-runCommandOnFile c (Just p) b f = do (e, out, err) <- readProcessWithExitCode c [p, f] []
-                                     reportBrowserError b $ T.pack err
-                                     return ()
-runCommandOnFile c Nothing b f = do (e, out, err) <- readProcessWithExitCode c [f] []
-                                    reportBrowserError b $ T.pack err
-                                    return ()
+runCommandOnFile :: String -> Maybe String -> FilePath -> IO (ExitCode, String, String)
+runCommandOnFile c p f = case p of Nothing -> readProcessWithExitCode c [f] []
+                                   Just p' -> readProcessWithExitCode c [p', f] []
+
+runCommandOnFileInBrowser :: String -> Maybe String -> DirBrowser -> FilePath -> IO ()
+runCommandOnFileInBrowser c p b f = do (e, out, err) <- runCommandOnFile c p f
+                                       reportBrowserError b $ T.pack err
+                                       return ()
 
 openFile :: DirBrowser -> FilePath -> IO ()
-openFile = runCommandOnFile "open" Nothing
+openFile = runCommandOnFileInBrowser "open" Nothing
 
 editFile :: DirBrowser -> FilePath -> IO ()
-editFile = runCommandOnFile "open" (Just "-e")
+editFile = runCommandOnFileInBrowser "open" (Just "-e")
 
 handleOnPipeKeyPressed state horizontalLayout verticalLayout _ key _ =
   if key == KChar '|'
