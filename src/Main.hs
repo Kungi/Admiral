@@ -2,6 +2,7 @@
 module Main where
 
 import Graphics.Vty
+import Graphics.Vty.Attributes
 import qualified Graphics.Vty.Widgets.All as W
 import KungBrowserWidget
 import System.Exit
@@ -109,6 +110,10 @@ handleBrowserInput collection state browser _ key modifier =
 newFilterDialog collection state browser =
   do fgT <- W.newFocusGroup
      e <- W.editWidget
+
+     W.setNormalAttribute e $ W.style 0x00
+     W.setFocusAttribute e $ W.style 0x00
+
      t <- W.plainText "Filter for: " W.<++> (return e)
      _ <- W.addToFocusGroup fgT t
 
