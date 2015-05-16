@@ -4,6 +4,7 @@ module Main where
 import Graphics.Vty
 import Graphics.Vty.Widgets.All
 import System.Exit
+import qualified System.Cmd as Cmd
 import System.FilePath.Posix
 import Control.Concurrent.STM.TVar
 import Control.Monad.STM
@@ -45,6 +46,8 @@ main = do
 
   (dirBrowserWidget browser1) `onKeyPressed` (handleBrowserInput browser1)
   (dirBrowserWidget browser2) `onKeyPressed` (handleBrowserInput browser2)
+  browser1 `onBrowseAccept` openFile browser1
+  browser2 `onBrowseAccept` openFile browser2
 
   fg `onKeyPressed` \_ key _ ->
     if key == KChar 'q' || key == KChar 'Q'
@@ -65,6 +68,13 @@ handleBrowserInput browser _ key modifier =
              setDirBrowserPath browser (joinPath (init (splitPath path)))
              return True
    otherwise -> return False
+
+openFile :: DirBrowser -> FilePath -> IO ()
+openFile browser filePath = do errorCode <- Cmd.system ("open " ++ show filePath)
+                               if errorCode /= ExitSuccess then
+                                 do reportBrowserError browser "An error occured"
+                                    return ()
+                               else return ()
 
 handleOnBSKeyPressed currentState horizontalLayout verticalLayout _ key _ =
   if key == KChar '|'
