@@ -13,9 +13,10 @@ import Control.Monad.STM
 data Orientation = Vertical | Horizontal deriving (Eq, Show)
 
 data ProgramState = ProgramState { currentOrientation :: Orientation
-                                 } deriving Show
+                                 , currentLayout :: IO ()
+                                 }
 
-newQuitDialog collection horizontalLayout =
+newQuitDialog collection state =
   do fgT <- W.newFocusGroup
      t <- W.plainText "Close KungCommander"
      _ <- W.addToFocusGroup fgT t
@@ -23,7 +24,9 @@ newQuitDialog collection horizontalLayout =
      fg' <- W.mergeFocusGroups fgT fgDialog
 
      dlg `W.onDialogAccept` (const exitSuccess)
-     dlg `W.onDialogCancel` (const horizontalLayout)
+
+     s <- atomically $ readTVar state
+     dlg `W.onDialogCancel` (const $ currentLayout s)
 
      switchToDialog <- W.addToCollection collection (W.dialogWidget dlg) fg'
      switchToDialog
@@ -31,8 +34,6 @@ newQuitDialog collection horizontalLayout =
 
 main :: IO ()
 main = do
-  currentState <- newTVarIO $ ProgramState { currentOrientation = Horizontal }
-
   (browser1, fg1) <- newDirBrowser defaultBrowserSkin
   (browser2, fg2) <- newDirBrowser defaultBrowserSkin
 
@@ -44,6 +45,9 @@ main = do
   c <- W.newCollection
   horizontalLayout <- W.addToCollection c horizontalBox fg
   verticalLayout  <- W.addToCollection c verticalBox fg
+
+  state <- newTVarIO $ ProgramState { currentOrientation = Horizontal
+                                    , currentLayout = horizontalLayout }
 
   (dirBrowserWidget browser1) `W.onKeyPressed` (handleBrowserInput browser1)
   (dirBrowserWidget browser2) `W.onKeyPressed` (handleBrowserInput browser2)
@@ -57,15 +61,16 @@ main = do
 
   fg `W.onKeyPressed` \_ key _ ->
     if key == KChar 'q' || key == KChar 'Q'
-    then newQuitDialog c horizontalLayout
+    then newQuitDialog c state
     else return False
 
-  fg `W.onKeyPressed` handleOnBSKeyPressed currentState horizontalLayout verticalLayout
+  fg `W.onKeyPressed` handleOnPipeKeyPressed state horizontalLayout verticalLayout
   W.runUi c $ W.defaultContext { W.focusAttr = white `W.on` green }
 
-swapOrientation :: ProgramState -> ProgramState
-swapOrientation (ProgramState Vertical) = ProgramState Horizontal
-swapOrientation (ProgramState Horizontal) = ProgramState Vertical
+swapOrientation :: IO () -> ProgramState -> ProgramState
+swapOrientation l p = case p of
+                       ProgramState Horizontal _ -> ProgramState Vertical l
+                       ProgramState Vertical _ -> ProgramState Horizontal l
 
 setHeaderFooterColor browser color = do W.setFocusAttribute (dirBrowserHeader browser) color
                                         W.setNormalAttribute (dirBrowserHeader browser) color
@@ -103,16 +108,19 @@ openFile browser filePath = do errorCode <- Cmd.system ("open " ++ show filePath
                                     return ()
                                else return ()
 
-handleOnBSKeyPressed currentState horizontalLayout verticalLayout _ key _ =
+handleOnPipeKeyPressed state horizontalLayout verticalLayout _ key _ =
   if key == KChar '|'
   then do
-    state <- atomically $ readTVar currentState
+    s <- atomically $ readTVar state
 
-    case state of
-     (ProgramState Horizontal) -> do verticalLayout
-                                     atomically $ modifyTVar currentState swapOrientation
-                                     return True
-     (ProgramState Vertical)  -> do horizontalLayout
-                                    atomically $ modifyTVar currentState swapOrientation
-                                    return True
+    let orientation = currentOrientation s
+      in case orientation of
+          Horizontal -> do atomically $ modifyTVar state (swapOrientation verticalLayout)
+                           l <- atomically $ readTVar state
+                           currentLayout l
+                           return True
+          Vertical  -> do atomically $ modifyTVar state (swapOrientation horizontalLayout)
+                          l <- atomically $ readTVar state
+                          currentLayout l
+                          return True
   else return False
