@@ -7,6 +7,7 @@ module KungBrowserWidget
     , DirBrowserWidgetType
     , newDirBrowser
     , withAnnotations
+    , currentSelection
     , setDirBrowserPath
     , getDirBrowserPath
     , defaultBrowserSkin
@@ -208,6 +209,13 @@ onBrowserPathChange = addHandler (return . dirBrowserPathChangeHandlers)
 
 cancelBrowse :: DirBrowser -> IO ()
 cancelBrowse b = fireEvent b (return . dirBrowserCancelHandlers) =<< getDirBrowserPath b
+
+currentSelection :: DirBrowser -> IO (Maybe FilePath)
+currentSelection b = do p <- getDirBrowserPath b
+                        mCur <- getSelected (dirBrowserList b)
+                        case mCur of
+                         Nothing -> return Nothing
+                         Just (_, (e, _)) -> return $ Just (p </> e)
 
 chooseCurrentEntry :: DirBrowser -> IO ()
 chooseCurrentEntry b = do

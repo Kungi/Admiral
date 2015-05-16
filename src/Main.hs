@@ -66,7 +66,7 @@ main = do
     else return False
 
   fg `W.onKeyPressed` handleOnPipeKeyPressed state horizontalLayout verticalLayout
-  W.runUi c $ W.defaultContext { W.focusAttr = white `W.on` green }
+  W.runUi c $ W.defaultContext
 
 swapOrientation :: IO () -> ProgramState -> ProgramState
 swapOrientation l p = case p of
@@ -80,10 +80,10 @@ setHeaderFooterColor browser color = do W.setFocusAttribute (dirBrowserHeader br
                                         return ()
 
 handleGainFocus :: DirBrowser -> W.Widget DirBrowserWidgetType -> IO ()
-handleGainFocus browser widget = setHeaderFooterColor browser (green `W.on` magenta)
+handleGainFocus browser widget = setHeaderFooterColor browser (white `W.on` blue)
 
 handleLoseFocus :: DirBrowser -> W.Widget DirBrowserWidgetType -> IO ()
-handleLoseFocus browser widget = setHeaderFooterColor browser (white `W.on` blue)
+handleLoseFocus browser widget = setHeaderFooterColor browser (white `W.on` black)
 
 -- handleBrowserInput :: DirBrowser -> W.Widget DirBrowserWidgetType -> Key -> [Modifier] -> IO Bool
 handleBrowserInput collection state browser _ key modifier =
@@ -100,6 +100,11 @@ handleBrowserInput collection state browser _ key modifier =
                  KBS -> do path <- getDirBrowserPath browser
                            setDirBrowserPath browser (joinPath (init (splitPath path)))
                            return True
+                 KChar 'e' -> do f <- currentSelection browser
+
+                                 case f of
+                                  Just f -> editFile browser f >> return True
+                                  Nothing -> return True
                  otherwise -> return False
 
 newFilterDialog collection state browser =
@@ -123,13 +128,18 @@ newFilterDialog collection state browser =
      switchToDialog
      return True
 
+runCommandOnFile :: String -> DirBrowser -> FilePath -> IO ()
+runCommandOnFile c b f = do errorCode <- Cmd.system (c ++ " " ++ show f)
+                            if errorCode /= ExitSuccess then
+                              do reportBrowserError b "An error occured"
+                                 return ()
+                              else return ()
 
 openFile :: DirBrowser -> FilePath -> IO ()
-openFile browser filePath = do errorCode <- Cmd.system ("open " ++ show filePath)
-                               if errorCode /= ExitSuccess then
-                                 do reportBrowserError browser "An error occured"
-                                    return ()
-                               else return ()
+openFile = runCommandOnFile "open"
+
+editFile :: DirBrowser -> FilePath -> IO ()
+editFile = runCommandOnFile "open -e"
 
 handleOnPipeKeyPressed state horizontalLayout verticalLayout _ key _ =
   if key == KChar '|'
