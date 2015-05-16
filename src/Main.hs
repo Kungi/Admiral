@@ -6,7 +6,7 @@ import qualified Graphics.Vty.Widgets.All as W
 import KungBrowserWidget
 import System.Exit
 import qualified Data.Text as T
-import qualified System.Cmd as Cmd
+import System.Process
 import System.FilePath.Posix
 import Control.Concurrent.STM.TVar
 import Control.Monad.STM
@@ -101,7 +101,6 @@ handleBrowserInput collection state browser _ key modifier =
                            setDirBrowserPath browser (joinPath (init (splitPath path)))
                            return True
                  KChar 'e' -> do f <- currentSelection browser
-
                                  case f of
                                   Just f -> editFile browser f >> return True
                                   Nothing -> return True
@@ -128,18 +127,19 @@ newFilterDialog collection state browser =
      switchToDialog
      return True
 
-runCommandOnFile :: String -> DirBrowser -> FilePath -> IO ()
-runCommandOnFile c b f = do errorCode <- Cmd.system (c ++ " " ++ show f)
-                            if errorCode /= ExitSuccess then
-                              do reportBrowserError b "An error occured"
-                                 return ()
-                              else return ()
+runCommandOnFile :: String -> Maybe String -> DirBrowser -> FilePath -> IO ()
+runCommandOnFile c (Just p) b f = do (e, out, err) <- readProcessWithExitCode c [p, f] []
+                                     reportBrowserError b $ T.pack err
+                                     return ()
+runCommandOnFile c Nothing b f = do (e, out, err) <- readProcessWithExitCode c [f] []
+                                    reportBrowserError b $ T.pack err
+                                    return ()
 
 openFile :: DirBrowser -> FilePath -> IO ()
-openFile = runCommandOnFile "open"
+openFile = runCommandOnFile "open" Nothing
 
 editFile :: DirBrowser -> FilePath -> IO ()
-editFile = runCommandOnFile "open -e"
+editFile = runCommandOnFile "open" (Just "-e")
 
 handleOnPipeKeyPressed state horizontalLayout verticalLayout _ key _ =
   if key == KChar '|'
