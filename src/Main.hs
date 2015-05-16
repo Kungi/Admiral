@@ -107,12 +107,15 @@ handleBrowserInput collection state browser _ key modifier =
                                   Nothing -> return True
                  otherwise -> return False
 
+noStyle :: Style
+noStyle = 0x00
+
 newFilterDialog collection state browser =
   do fgT <- W.newFocusGroup
      e <- W.editWidget
 
-     W.setNormalAttribute e $ W.style 0x00
-     W.setFocusAttribute e $ W.style 0x00
+     W.setNormalAttribute e $ W.style noStyle
+     W.setFocusAttribute e $ W.style noStyle
 
      t <- W.plainText "Filter for: " W.<++> (return e)
      _ <- W.addToFocusGroup fgT t
