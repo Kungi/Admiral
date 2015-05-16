@@ -63,11 +63,16 @@ swapOrientation (ProgramState Horizontal) = ProgramState Vertical
 
 handleBrowserInput :: DirBrowser -> Widget DirBrowserWidgetType -> Key -> [Modifier] -> IO Bool
 handleBrowserInput browser _ key modifier =
-  case key of
-   KBS -> do path <- getDirBrowserPath browser
-             setDirBrowserPath browser (joinPath (init (splitPath path)))
-             return True
-   otherwise -> return False
+  case modifier of
+   [MCtrl] -> case key of KChar 'x' -> do reportBrowserError browser "Ctrl-x pressed"
+                                          return True
+                          otherwise -> return False
+
+   otherwise -> case key of
+                 KBS -> do path <- getDirBrowserPath browser
+                           setDirBrowserPath browser (joinPath (init (splitPath path)))
+                           return True
+                 otherwise -> return False
 
 openFile :: DirBrowser -> FilePath -> IO ()
 openFile browser filePath = do errorCode <- Cmd.system ("open " ++ show filePath)
