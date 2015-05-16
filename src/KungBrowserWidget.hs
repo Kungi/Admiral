@@ -15,6 +15,7 @@ module KungBrowserWidget
     , onBrowserPathChange
     , reportBrowserError
     , refreshBrowser
+    , filterBrowser
     )
 where
 
@@ -23,6 +24,7 @@ import qualified Data.Map as Map
 import qualified Control.Exception as E
 import Control.Monad
 import qualified Data.Text as T
+import qualified Data.List as L
 import Graphics.Vty
 import Graphics.Vty.Widgets.Core
 import Graphics.Vty.Widgets.List
@@ -371,3 +373,16 @@ ascend b = do
   let newPath = takeDirectory cur
   when (newPath /= cur) $
        setDirBrowserPath b newPath
+
+filterBrowser :: DirBrowser -> String -> IO ()
+filterBrowser b s = do clearList (dirBrowserList b)
+                       curPath <- getDirBrowserPath b
+
+                       (res, entries) <- (do
+                                             entries <- getDirectoryContents curPath
+                                             return (True, entries))
+                                         `E.catch` \e -> do
+                                             reportBrowserError b (T.pack $ ioeGetErrorString e)
+                                             return (False, [])
+                       when res $ do
+                         load b curPath $ filter (s `L.isInfixOf`) entries

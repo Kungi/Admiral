@@ -86,6 +86,10 @@ handleBrowserInput browser _ key modifier =
                                           return True
                           otherwise -> return False
 
+   [MCtrl] -> case key of KChar 's' -> do filterBrowser browser "cabal"
+                                          return True
+                          otherwise -> return False
+
    otherwise -> case key of
                  KBS -> do path <- getDirBrowserPath browser
                            setDirBrowserPath browser (joinPath (init (splitPath path)))
