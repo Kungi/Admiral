@@ -52,6 +52,9 @@ main = do
   (dirBrowserWidget browser1) `W.onGainFocus` handleGainFocus browser1
   (dirBrowserWidget browser2) `W.onGainFocus` handleGainFocus browser2
 
+  (dirBrowserWidget browser1) `W.onLoseFocus` handleLoseFocus browser1
+  (dirBrowserWidget browser2) `W.onLoseFocus` handleLoseFocus browser2
+
   fg `W.onKeyPressed` \_ key _ ->
     if key == KChar 'q' || key == KChar 'Q'
     then newQuitDialog c horizontalLayout
@@ -65,7 +68,11 @@ swapOrientation (ProgramState Vertical) = ProgramState Horizontal
 swapOrientation (ProgramState Horizontal) = ProgramState Vertical
 
 handleGainFocus :: DirBrowser -> W.Widget DirBrowserWidgetType -> IO ()
-handleGainFocus browser widget = do W.setFocusAttribute widget (W.bgColor white)
+handleGainFocus browser widget = do W.setNormalAttribute (dirBrowserHeader browser) (green `W.on` black)
+                                    return ()
+
+handleLoseFocus :: DirBrowser -> W.Widget DirBrowserWidgetType -> IO ()
+handleLoseFocus browser widget = do W.setNormalAttribute (dirBrowserHeader browser) (white `W.on` blue)
                                     return ()
 
 handleBrowserInput :: DirBrowser -> W.Widget DirBrowserWidgetType -> Key -> [Modifier] -> IO Bool

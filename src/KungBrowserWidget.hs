@@ -2,7 +2,7 @@
 -- |This module provides a directory browser interface widget.  For
 -- full details, please see the Vty-ui User's Manual.
 module KungBrowserWidget
-    ( DirBrowser(dirBrowserWidget)
+    (DirBrowser(dirBrowserWidget, dirBrowserPathDisplay, dirBrowserFileInfo, dirBrowserHeader)
     , BrowserSkin(..)
     , DirBrowserWidgetType
     , newDirBrowser
@@ -49,6 +49,7 @@ data DirBrowser = DirBrowser { dirBrowserWidget :: Widget DirBrowserWidgetType
                              , dirBrowserList :: Widget (List String (Box FormattedText FormattedText))
                              , dirBrowserPath :: IORef FilePath
                              , dirBrowserPathDisplay :: Widget FormattedText
+                             , dirBrowserHeader :: Widget (Box (Box FormattedText FormattedText) HFill)
                              , dirBrowserSelectionMap :: IORef (Map.Map FilePath Int)
                              , dirBrowserFileInfo :: Widget FormattedText
                              , dirBrowserSkin :: BrowserSkin
@@ -128,6 +129,7 @@ newDirBrowser bSkin = do
   path <- getCurrentDirectory
   pathWidget <- plainText T.empty
   errorText <- plainText T.empty >>= withNormalAttribute (browserErrorAttr bSkin)
+
   header <- ((plainText " Path: ")
              <++> (return pathWidget) <++> (hFill ' ' 1))
             >>= withNormalAttribute (browserHeaderAttr bSkin)
@@ -153,6 +155,7 @@ newDirBrowser bSkin = do
                      , dirBrowserList = l
                      , dirBrowserPath = r
                      , dirBrowserPathDisplay = pathWidget
+                     , dirBrowserHeader = header
                      , dirBrowserSelectionMap = r2
                      , dirBrowserFileInfo = fileInfo
                      , dirBrowserSkin = bSkin
