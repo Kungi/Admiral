@@ -64,7 +64,7 @@ swapOrientation (ProgramState Horizontal) = ProgramState Vertical
 handleBrowserInput :: DirBrowser -> Widget DirBrowserWidgetType -> Key -> [Modifier] -> IO Bool
 handleBrowserInput browser _ key modifier =
   case modifier of
-   [MCtrl] -> case key of KChar 'x' -> do reportBrowserError browser "Ctrl-x pressed"
+   [MMeta] -> case key of KChar 'x' -> do reportBrowserError browser "M-x pressed"
                                           return True
                           otherwise -> return False
 
