@@ -67,22 +67,17 @@ swapOrientation :: ProgramState -> ProgramState
 swapOrientation (ProgramState Vertical) = ProgramState Horizontal
 swapOrientation (ProgramState Horizontal) = ProgramState Vertical
 
-handleGainFocus :: DirBrowser -> W.Widget DirBrowserWidgetType -> IO ()
-handleGainFocus browser widget = do W.setFocusAttribute (dirBrowserHeader browser) color
-                                    W.setNormalAttribute (dirBrowserHeader browser) color
-                                    W.setNormalAttribute (dirBrowserFooter browser) color
-                                    W.setFocusAttribute (dirBrowserFooter browser) color
-                                    return ()
-  where color = (green `W.on` magenta)
+setHeaderFooterColor browser color = do W.setFocusAttribute (dirBrowserHeader browser) color
+                                        W.setNormalAttribute (dirBrowserHeader browser) color
+                                        W.setNormalAttribute (dirBrowserFooter browser) color
+                                        W.setFocusAttribute (dirBrowserFooter browser) color
+                                        return ()
 
+handleGainFocus :: DirBrowser -> W.Widget DirBrowserWidgetType -> IO ()
+handleGainFocus browser widget = setHeaderFooterColor browser (green `W.on` magenta)
 
 handleLoseFocus :: DirBrowser -> W.Widget DirBrowserWidgetType -> IO ()
-handleLoseFocus browser widget = do W.setNormalAttribute (dirBrowserHeader browser) color
-                                    W.setFocusAttribute (dirBrowserHeader browser) color
-                                    W.setNormalAttribute (dirBrowserFooter browser) color
-                                    W.setFocusAttribute (dirBrowserFooter browser) color
-                                    return ()
-  where color = (white `W.on` blue)
+handleLoseFocus browser widget = setHeaderFooterColor browser (white `W.on` blue)
 
 handleBrowserInput :: DirBrowser -> W.Widget DirBrowserWidgetType -> Key -> [Modifier] -> IO Bool
 handleBrowserInput browser _ key modifier =
