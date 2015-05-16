@@ -43,8 +43,8 @@ main = do
   horizontalLayout <- addToCollection c horizontalBox fg
   verticalLayout  <- addToCollection c verticalBox fg
 
-  (dirBrowserWidget browser1) `onKeyPressed` (handleBsKey browser1)
-  (dirBrowserWidget browser2) `onKeyPressed` (handleBsKey browser2)
+  (dirBrowserWidget browser1) `onKeyPressed` (handleBrowserInput browser1)
+  (dirBrowserWidget browser2) `onKeyPressed` (handleBrowserInput browser2)
 
   fg `onKeyPressed` \_ key _ ->
     if key == KChar 'q' || key == KChar 'Q'
@@ -58,14 +58,13 @@ swapOrientation :: ProgramState -> ProgramState
 swapOrientation (ProgramState Vertical) = ProgramState Horizontal
 swapOrientation (ProgramState Horizontal) = ProgramState Vertical
 
-handleBsKey :: DirBrowser -> Widget DirBrowserWidgetType -> Key -> [Modifier] -> IO Bool
-handleBsKey browser _ key _ =  if key == KBS
-                               then do path <- getDirBrowserPath browser
-                                       setDirBrowserPath
-                                         browser
-                                         (joinPath (init (splitPath path)))
-                                       return True
-                               else return False
+handleBrowserInput :: DirBrowser -> Widget DirBrowserWidgetType -> Key -> [Modifier] -> IO Bool
+handleBrowserInput browser _ key modifier =
+  case key of
+   KBS -> do path <- getDirBrowserPath browser
+             setDirBrowserPath browser (joinPath (init (splitPath path)))
+             return True
+   otherwise -> return False
 
 handleOnBSKeyPressed currentState horizontalLayout verticalLayout _ key _ =
   if key == KChar '|'
