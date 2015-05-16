@@ -20,6 +20,6 @@ executable kung-commander
   -- other-modules:
   -- other-extensions:
   ghc-options:         -threaded -Wall
-  build-depends:       base, vty-ui, text, vty, filepath, stm, process
+  build-depends:       base, vty-ui, text, vty, filepath, stm, process, containers, directory, unix
   hs-source-dirs:      src
   default-language:    Haskell2010

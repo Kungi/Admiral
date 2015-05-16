@@ -2,7 +2,8 @@
 module Main where
 
 import Graphics.Vty
-import Graphics.Vty.Widgets.All
+import qualified Graphics.Vty.Widgets.All as W
+import KungBrowserWidget
 import System.Exit
 import qualified System.Cmd as Cmd
 import System.FilePath.Posix
@@ -15,16 +16,16 @@ data ProgramState = ProgramState { currentOrientation :: Orientation
                                  } deriving Show
 
 newQuitDialog collection horizontalLayout =
-  do fgT <- newFocusGroup
-     t <- plainText "Close KungCommander"
-     _ <- addToFocusGroup fgT t
-     (dlg, fgDialog) <- newDialog t "Close"
-     fg' <- mergeFocusGroups fgT fgDialog
+  do fgT <- W.newFocusGroup
+     t <- W.plainText "Close KungCommander"
+     _ <- W.addToFocusGroup fgT t
+     (dlg, fgDialog) <- W.newDialog t "Close"
+     fg' <- W.mergeFocusGroups fgT fgDialog
 
-     dlg `onDialogAccept` (const exitSuccess)
-     dlg `onDialogCancel` (const horizontalLayout)
+     dlg `W.onDialogAccept` (const exitSuccess)
+     dlg `W.onDialogCancel` (const horizontalLayout)
 
-     switchToDialog <- addToCollection collection (dialogWidget dlg) fg'
+     switchToDialog <- W.addToCollection collection (W.dialogWidget dlg) fg'
      switchToDialog
      return True
 
@@ -35,33 +36,39 @@ main = do
   (browser1, fg1) <- newDirBrowser defaultBrowserSkin
   (browser2, fg2) <- newDirBrowser defaultBrowserSkin
 
-  fg <- mergeFocusGroups fg1 fg2
+  fg <- W.mergeFocusGroups fg1 fg2
 
-  horizontalBox <- hBox (dirBrowserWidget browser1) (dirBrowserWidget browser2)
-  verticalBox <- vBox (dirBrowserWidget browser1) (dirBrowserWidget browser2)
+  horizontalBox <- W.hBox (dirBrowserWidget browser1) (dirBrowserWidget browser2)
+  verticalBox <- W.vBox (dirBrowserWidget browser1) (dirBrowserWidget browser2)
 
-  c <- newCollection
-  horizontalLayout <- addToCollection c horizontalBox fg
-  verticalLayout  <- addToCollection c verticalBox fg
+  c <- W.newCollection
+  horizontalLayout <- W.addToCollection c horizontalBox fg
+  verticalLayout  <- W.addToCollection c verticalBox fg
 
-  (dirBrowserWidget browser1) `onKeyPressed` (handleBrowserInput browser1)
-  (dirBrowserWidget browser2) `onKeyPressed` (handleBrowserInput browser2)
+  (dirBrowserWidget browser1) `W.onKeyPressed` (handleBrowserInput browser1)
+  (dirBrowserWidget browser2) `W.onKeyPressed` (handleBrowserInput browser2)
   browser1 `onBrowseAccept` openFile browser1
   browser2 `onBrowseAccept` openFile browser2
+  (dirBrowserWidget browser1) `W.onGainFocus` handleGainFocus browser1
+  (dirBrowserWidget browser2) `W.onGainFocus` handleGainFocus browser2
 
-  fg `onKeyPressed` \_ key _ ->
+  fg `W.onKeyPressed` \_ key _ ->
     if key == KChar 'q' || key == KChar 'Q'
     then newQuitDialog c horizontalLayout
     else return False
 
-  fg `onKeyPressed` handleOnBSKeyPressed currentState horizontalLayout verticalLayout
-  runUi c $ defaultContext { focusAttr = white `on` blue }
+  fg `W.onKeyPressed` handleOnBSKeyPressed currentState horizontalLayout verticalLayout
+  W.runUi c $ W.defaultContext { W.focusAttr = white `W.on` blue }
 
 swapOrientation :: ProgramState -> ProgramState
 swapOrientation (ProgramState Vertical) = ProgramState Horizontal
 swapOrientation (ProgramState Horizontal) = ProgramState Vertical
 
-handleBrowserInput :: DirBrowser -> Widget DirBrowserWidgetType -> Key -> [Modifier] -> IO Bool
+handleGainFocus :: DirBrowser -> W.Widget DirBrowserWidgetType -> IO ()
+handleGainFocus browser widget = do W.setFocusAttribute widget (W.bgColor white)
+                                    return ()
+
+handleBrowserInput :: DirBrowser -> W.Widget DirBrowserWidgetType -> Key -> [Modifier] -> IO Bool
 handleBrowserInput browser _ key modifier =
   case modifier of
    [MMeta] -> case key of KChar 'x' -> do reportBrowserError browser "M-x pressed"
