@@ -39,23 +39,24 @@ import System.FilePath
 import System.Posix.Files
 import System.IO.Error
 
-type DirBrowserWidgetType =
-    Box
-    (Box (Box FormattedText FormattedText) HFill)
-    (Box
-     (List [Char] (Box FormattedText FormattedText))
-     (Box
-      (Box (Box FormattedText FormattedText) HFill)
-      FormattedText))
+type Header = (Box (Box FormattedText FormattedText) HFill)
+type Footer = Box
+              (Box (Box FormattedText FormattedText) HFill)
+              FormattedText
+type BrowserList = List [Char] (Box FormattedText FormattedText)
+
+type DirBrowserWidgetType = Box
+                            Header
+                            (Box BrowserList Footer)
 
 data DirBrowser = DirBrowser { dirBrowserWidget :: Widget DirBrowserWidgetType
-                             , dirBrowserList :: Widget (List String (Box FormattedText FormattedText))
+                             , dirBrowserList :: Widget BrowserList
                              , dirBrowserPath :: IORef FilePath
                              , dirBrowserPathDisplay :: Widget FormattedText
-                             , dirBrowserHeader :: Widget (Box (Box FormattedText FormattedText) HFill)
+                             , dirBrowserHeader :: Widget Header
                              , dirBrowserSelectionMap :: IORef (Map.Map FilePath Int)
                              , dirBrowserFileInfo :: Widget FormattedText
-                             , dirBrowserFooter :: Widget (Box (Box (Box FormattedText FormattedText) HFill) FormattedText)
+                             , dirBrowserFooter :: Widget Footer
                              , dirBrowserSkin :: BrowserSkin
                              , dirBrowserErrorWidget :: Widget FormattedText
                              , dirBrowserChooseHandlers :: Handlers FilePath
