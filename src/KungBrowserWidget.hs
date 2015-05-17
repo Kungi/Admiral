@@ -127,22 +127,30 @@ withAnnotations :: BrowserSkin
                 -> BrowserSkin
 withAnnotations sk as = sk { browserCustomAnnotations = browserCustomAnnotations sk ++ as }
 
+newHeader :: BrowserSkin -> IO (Widget Header, Widget FormattedText)
+newHeader bSkin = do pathWidget <- plainText T.empty
+                     header <- ((plainText " Path: ")
+                                <++> (return pathWidget) <++> (hFill ' ' 1))
+                               >>= withNormalAttribute (browserHeaderAttr bSkin)
+                     return (header, pathWidget)
+
+newFooter :: BrowserSkin -> IO (Widget Footer, Widget FormattedText, Widget FormattedText)
+newFooter bSkin = do errorText <- plainText T.empty >>= withNormalAttribute (browserErrorAttr bSkin)
+                     fileInfo <- plainText T.empty
+                     footer <- ((plainText " ")
+                                <++> (return fileInfo) <++> (hFill ' ' 1) <++> (return errorText))
+                               >>= withNormalAttribute (browserHeaderAttr bSkin)
+                     return (footer, fileInfo, errorText)
+
+
 -- |Create a directory browser widget with the specified skin.
 -- Returns the browser itself along with its focus group.
 newDirBrowser :: BrowserSkin -> IO (DirBrowser, Widget FocusGroup)
 newDirBrowser bSkin = do
   path <- getCurrentDirectory
-  pathWidget <- plainText T.empty
-  errorText <- plainText T.empty >>= withNormalAttribute (browserErrorAttr bSkin)
 
-  header <- ((plainText " Path: ")
-             <++> (return pathWidget) <++> (hFill ' ' 1))
-            >>= withNormalAttribute (browserHeaderAttr bSkin)
-
-  fileInfo <- plainText T.empty
-  footer <- ((plainText " ")
-             <++> (return fileInfo) <++> (hFill ' ' 1) <++> (return errorText))
-            >>= withNormalAttribute (browserHeaderAttr bSkin)
+  (header, pathWidget) <- newHeader bSkin
+  (footer, fileInfo, errorText) <- newFooter bSkin
 
   l <- newList 1
   setSelectedUnfocusedAttr l $ Just (browserUnfocusedSelAttr bSkin)
