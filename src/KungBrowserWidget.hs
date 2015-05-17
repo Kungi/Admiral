@@ -21,6 +21,7 @@ module KungBrowserWidget
 where
 
 import Data.IORef
+import Data.Foldable
 import qualified Data.Map as Map
 import qualified Control.Exception as E
 import Control.Monad
@@ -43,7 +44,7 @@ type Header = (Box (Box FormattedText FormattedText) HFill)
 type Footer = Box
               (Box (Box FormattedText FormattedText) HFill)
               FormattedText
-type BrowserList = List [Char] (Box FormattedText FormattedText)
+type BrowserList = List String (Box FormattedText FormattedText)
 
 type DirBrowserWidgetType = Box
                             Header
@@ -129,16 +130,16 @@ withAnnotations sk as = sk { browserCustomAnnotations = browserCustomAnnotations
 
 newHeader :: BrowserSkin -> IO (Widget Header, Widget FormattedText)
 newHeader bSkin = do pathWidget <- plainText T.empty
-                     header <- ((plainText " Path: ")
-                                <++> (return pathWidget) <++> (hFill ' ' 1))
+                     header <- (plainText " Path: "
+                                <++> return pathWidget <++> hFill ' ' 1)
                                >>= withNormalAttribute (browserHeaderAttr bSkin)
                      return (header, pathWidget)
 
 newFooter :: BrowserSkin -> IO (Widget Footer, Widget FormattedText, Widget FormattedText)
 newFooter bSkin = do errorText <- plainText T.empty >>= withNormalAttribute (browserErrorAttr bSkin)
                      fileInfo <- plainText T.empty
-                     footer <- ((plainText " ")
-                                <++> (return fileInfo) <++> (hFill ' ' 1) <++> (return errorText))
+                     footer <- (plainText " "
+                                <++> return fileInfo <++> hFill ' ' 1 <++> return errorText)
                                >>= withNormalAttribute (browserHeaderAttr bSkin)
                      return (footer, fileInfo, errorText)
 
@@ -235,11 +236,10 @@ chooseCurrentEntry b = do
     Just (_, (e, _)) -> fireEvent b (return . dirBrowserChooseHandlers) (p </> e)
 
 handleSelectionChange :: DirBrowser -> SelectionEvent String b -> IO ()
-handleSelectionChange b ev = do
-  case ev of
-    SelectionOff -> setText (dirBrowserFileInfo b) "-"
-    SelectionOn _ path _ -> setText (dirBrowserFileInfo b) =<<
-                            (getFileInfo b path)
+handleSelectionChange b ev = case ev of
+                              SelectionOff -> setText (dirBrowserFileInfo b) "-"
+                              SelectionOn _ path _ -> setText (dirBrowserFileInfo b) =<<
+                                                      getFileInfo b path
 
 getFileInfo :: DirBrowser -> FilePath -> IO T.Text
 getFileInfo b path = do
@@ -256,16 +256,16 @@ builtInAnnotations :: FilePath -> BrowserSkin -> [(FilePath -> FileStatus -> Boo
 builtInAnnotations cur sk =
     [ (\_ s -> isRegularFile s
       , \_ s -> return $ T.pack $ "regular file, " ++
-                (show $ fileSize s) ++ " bytes"
+                show (fileSize s) ++ " bytes"
       , defAttr)
     , (\_ s -> isSymbolicLink s,
-       (\p stat -> do
+       \p stat -> do
           linkDest <- if not $ isSymbolicLink stat
                       then return ""
                       else do
                         linkPath <- readSymbolicLink p
                         canonicalizePath $ cur </> linkPath
-          return $ T.pack $ "symbolic link to " ++ linkDest)
+          return $ T.pack $ "symbolic link to " ++ linkDest
       , browserLinkAttr sk)
     , (\_ s -> isDirectory s, \_ _ -> return "directory", browserDirAttr sk)
     , (\_ s -> isBlockDevice s, \_ _ -> return "block device", browserBlockDevAttr sk)
@@ -278,8 +278,8 @@ fileAnnotation :: BrowserSkin -> FileStatus -> FilePath -> FilePath -> IO (Attr,
 fileAnnotation sk st cur shortPath = do
   let fullPath = cur </> shortPath
 
-      annotation = getAnnotation' fullPath st $ (browserCustomAnnotations sk) ++
-                   (builtInAnnotations cur sk)
+      annotation = getAnnotation' fullPath st $ browserCustomAnnotations sk ++
+                   builtInAnnotations cur sk
 
       getAnnotation' _ _ [] = (defAttr, return T.empty)
       getAnnotation' pth stat ((f,mkAnn,a):rest) =
@@ -333,9 +333,7 @@ setDirBrowserPath b path = do
     load b cPath entries
 
     sel <- getSelection b path
-    case sel of
-      Nothing -> return ()
-      Just i -> scrollBy (dirBrowserList b) i
+    Data.Foldable.forM_ sel (scrollBy (dirBrowserList b))
 
     fireEvent b (return . dirBrowserPathChangeHandlers) cPath
 
@@ -374,16 +372,16 @@ descend b shouldSelect = do
     Just (_, (p, _)) -> do
               let newPath = base </> p
               e <- doesDirectoryExist newPath
-              case e of
-                True -> do
-                       cPath <- canonicalizePath newPath
-                       cur <- getDirBrowserPath b
-                       when (cur /= cPath) $ do
-                          case takeDirectory cur == cPath of
-                            True -> ascend b
-                            False -> setDirBrowserPath b cPath
+              if e then
+                do
+                  cPath <- canonicalizePath newPath
+                  cur <- getDirBrowserPath b
+                  when (cur /= cPath) $
+                    if takeDirectory cur == cPath then
+                      ascend b
+                    else setDirBrowserPath b cPath
 
-                False -> when shouldSelect $ chooseCurrentEntry b
+                else when shouldSelect $ chooseCurrentEntry b
 
 ascend :: DirBrowser -> IO ()
 ascend b = do
@@ -402,7 +400,7 @@ filterBrowser b s = do clearList (dirBrowserList b)
                                          `E.catch` \e -> do
                                              reportBrowserError b (T.pack $ ioeGetErrorString e)
                                              return (False, [])
-                       when res $ do
+                       when res $
                          load b curPath $ filter (s `L.isInfixOf`) entries
 
 toggleWidgetVisible :: Widget a -> IO ()
