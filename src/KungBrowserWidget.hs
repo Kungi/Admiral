@@ -291,6 +291,7 @@ fileAnnotation sk st cur shortPath = do
 
 handleBrowserKey :: DirBrowser -> Widget (List a b) -> Key -> [Modifier] -> IO Bool
 handleBrowserKey b _ KEnter [] = descend b True >> return True
+handleBrowserKey b _ (KChar ' ') [] = toggleHeaderAndFooter b >> return True
 handleBrowserKey b _ KRight [] = descend b False >> return True
 handleBrowserKey b _ KLeft [] = ascend b >> return True
 handleBrowserKey b _ KEsc [] = cancelBrowse b >> return True
@@ -403,3 +404,11 @@ filterBrowser b s = do clearList (dirBrowserList b)
                                              return (False, [])
                        when res $ do
                          load b curPath $ filter (s `L.isInfixOf`) entries
+
+toggleWidgetVisible :: Widget a -> IO ()
+toggleWidgetVisible w = do v <- getVisible w
+                           setVisible w $ not v
+
+toggleHeaderAndFooter :: DirBrowser -> IO ()
+toggleHeaderAndFooter b = do toggleWidgetVisible $ dirBrowserHeader b
+                             toggleWidgetVisible $ dirBrowserFooter b
