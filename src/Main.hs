@@ -83,8 +83,8 @@ main = do
   state <- newTVarIO ProgramState { currentOrientation = Horizontal
                                   , currentLayout = horizontalLayout }
 
-  dirBrowserWidget browser1 `W.onKeyPressed` handleBrowserInput c state browser1
-  dirBrowserWidget browser2 `W.onKeyPressed` handleBrowserInput c state browser2
+  dirBrowserWidget browser1 `W.onKeyPressed` handleBrowserInput c state browser1 browser2
+  dirBrowserWidget browser2 `W.onKeyPressed` handleBrowserInput c state browser2 browser1
 
   browser1 `onBrowseAccept` openFile browser1
   browser2 `onBrowseAccept` openFile browser2
@@ -134,9 +134,9 @@ handleGainFocus browser _ = setHeaderFooterColor browser (white `W.on` blue)
 handleLoseFocus :: DirBrowser -> W.Widget DirBrowserWidgetType -> IO ()
 handleLoseFocus browser _ = setHeaderFooterColor browser (white `W.on` black)
 
-handleBrowserInput :: W.Collection -> TVar ProgramState -> DirBrowser -> t
+handleBrowserInput :: W.Collection -> TVar ProgramState -> DirBrowser -> DirBrowser -> t
                    -> Key -> [Modifier] -> IO Bool
-handleBrowserInput collection state browser _ key modifier =
+handleBrowserInput collection state browser otherBrowser _ key modifier =
   case modifier of
    [MMeta] -> case key of KChar 'x' -> do reportBrowserError browser "M-x pressed"
                                           return True
@@ -161,7 +161,7 @@ handleBrowserInput collection state browser _ key modifier =
                           Nothing -> return True
          KChar '?' -> do newHelpDialog collection state
                          return True
-         KChar '\t' -> do reportBrowserError browser "Tab to next browser"
+         KChar '\t' -> do W.focus (dirBrowserWidget otherBrowser)
                           return True
          _ -> return False
 
