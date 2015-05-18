@@ -63,13 +63,18 @@ newQuitDialog collection state =
 
 main :: IO ()
 main = do
-  (browser1, fg1) <- newDirBrowser defaultBrowserSkin
-  (browser2, fg2) <- newDirBrowser defaultBrowserSkin
+  (filter1, browser1, fg1) <- newDirBrowser defaultBrowserSkin
+  (filter2, browser2, fg2) <- newDirBrowser defaultBrowserSkin
 
   fg <- W.mergeFocusGroups fg1 fg2
 
-  horizontalBox <- W.hBox (dirBrowserWidget browser1) (dirBrowserWidget browser2)
-  verticalBox <- W.vBox (dirBrowserWidget browser1) (dirBrowserWidget browser2)
+  W.setFocusGroupNextKey fg (KChar 'u') [MCtrl]
+
+  b1 <- (return (dirBrowserWidget browser1) W.<--> (return filter1))
+  b2 <- (return (dirBrowserWidget browser2) W.<--> (return filter2))
+
+  horizontalBox <- W.hBox b1 b2
+  verticalBox <- W.vBox b1 b2
 
   c <- W.newCollection
   horizontalLayout <- W.addToCollection c horizontalBox fg
@@ -80,8 +85,10 @@ main = do
 
   dirBrowserWidget browser1 `W.onKeyPressed` handleBrowserInput c state browser1
   dirBrowserWidget browser2 `W.onKeyPressed` handleBrowserInput c state browser2
+
   browser1 `onBrowseAccept` openFile browser1
   browser2 `onBrowseAccept` openFile browser2
+
   dirBrowserWidget browser1 `W.onGainFocus` handleGainFocus browser1
   dirBrowserWidget browser2 `W.onGainFocus` handleGainFocus browser2
 
@@ -91,13 +98,23 @@ main = do
   dirBrowserFilterEdit browser1 `W.onChange` filterBrowser browser1
   dirBrowserFilterEdit browser2 `W.onChange` filterBrowser browser2
 
-  fg `W.onKeyPressed` \_ key _ ->
-    if key == KChar 'q' || key == KChar 'Q'
-    then newQuitDialog c state >> return True
-    else return False
+  filter1 `W.onKeyPressed` handleCtrlFInFilter browser1
+  filter2 `W.onKeyPressed` handleCtrlFInFilter browser2
+
+  fg `W.onKeyPressed` handleFocusGroupKeys state c
 
   fg `W.onKeyPressed` handleOnPipeKeyPressed state horizontalLayout verticalLayout
   W.runUi c W.defaultContext
+
+handleCtrlFInFilter :: DirBrowser -> t -> Key -> [Modifier] -> IO Bool
+handleCtrlFInFilter browser _ (KChar 'f') [MCtrl] = do W.focus (dirBrowserWidget browser)
+                                                       toggleWidgetVisible (dirBrowserFilter browser)
+                                                       return True
+handleCtrlFInFilter _ _ _ _ = do return False
+
+handleFocusGroupKeys :: TVar ProgramState -> W.Collection -> t -> Key -> [Modifier] -> IO Bool
+handleFocusGroupKeys state c _ (KChar 'q') [MCtrl] = newQuitDialog c state >> return True
+handleFocusGroupKeys _ _ _ _ _ = return False
 
 swapOrientation :: IO () -> ProgramState -> ProgramState
 swapOrientation l p = case p of
@@ -126,6 +143,7 @@ handleBrowserInput collection state browser _ key modifier =
                           _ -> return False
 
    [MCtrl] -> case key of KChar 'f' -> do toggleWidgetVisible (dirBrowserFilter browser)
+                                          W.focus (dirBrowserFilter browser)
                                           -- newFilterDialog collection state browser
                                           return True
                           KChar 's' -> do newSearchDialog collection state browser
@@ -143,6 +161,8 @@ handleBrowserInput collection state browser _ key modifier =
                           Nothing -> return True
          KChar '?' -> do newHelpDialog collection state
                          return True
+         KChar '\t' -> do reportBrowserError browser "Tab to next browser"
+                          return True
          _ -> return False
 
 newFilterDialog :: W.Collection -> TVar ProgramState -> DirBrowser -> IO ()

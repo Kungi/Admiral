@@ -51,10 +51,8 @@ type BrowserList = List String (Box FormattedText FormattedText)
 type Filter = Box FormattedText Edit
 
 type DirBrowserWidgetType = Box
-                            (Box
                              Header
-                             (Box BrowserList Footer))
-                            Filter
+                             (Box BrowserList Footer)
 
 data DirBrowser = DirBrowser { dirBrowserWidget :: Widget DirBrowserWidgetType
                              , dirBrowserList :: Widget BrowserList
@@ -159,14 +157,15 @@ newFilter :: IO (Widget (Box FormattedText Edit), Widget Edit)
 newFilter = do e <- editWidget
                setNormalAttribute e $ style noStyle
                setFocusAttribute e $ style noStyle
+               setNormalAttribute e $ white `on` black
+               setFocusAttribute e $ white `on` black
                filterWidget <- (plainText "Filter: ") <++> return e
                setVisible filterWidget False
-               unfocus filterWidget
                return (filterWidget, e)
 
 -- |Create a directory browser widget with the specified skin.
 -- Returns the browser itself along with its focus group.
-newDirBrowser :: BrowserSkin -> IO (DirBrowser, Widget FocusGroup)
+newDirBrowser :: BrowserSkin -> IO (Widget Filter, DirBrowser, Widget FocusGroup)
 newDirBrowser bSkin = do
   path <- getCurrentDirectory
 
@@ -177,7 +176,8 @@ newDirBrowser bSkin = do
   l <- newList 1
   setSelectedUnfocusedAttr l $ Just (browserUnfocusedSelAttr bSkin)
 
-  ui <- ((return header) <--> (return l <--> return footer)) <--> return filterWidget
+  dirBrowser <- ((return header) <--> (return l <--> return footer))
+  -- ui <- return dirBrowser <--> return filterWidget
 
   r <- newIORef ""
   r2 <- newIORef Map.empty
@@ -186,7 +186,7 @@ newDirBrowser bSkin = do
   chs <- newHandlers
   pchs <- newHandlers
 
-  let b = DirBrowser { dirBrowserWidget = ui
+  let b = DirBrowser { dirBrowserWidget = dirBrowser
                      , dirBrowserList = l
                      , dirBrowserPath = r
                      , dirBrowserPathDisplay = pathWidget
@@ -211,10 +211,11 @@ newDirBrowser bSkin = do
   setVisible footer $ browserShowFooter bSkin
 
   fg <- newFocusGroup
-  _ <- addToFocusGroup fg ui
+  _ <- addToFocusGroup fg dirBrowser
+  _ <- addToFocusGroup fg filterWidget
 
   setDirBrowserPath b path
-  return (b, fg)
+  return (filterWidget, b, fg)
 
 -- |Report an error in the browser's error-reporting area.  Useful for
 -- reporting application-specific errors with the user's file
