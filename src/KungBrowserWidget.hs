@@ -16,6 +16,9 @@ module KungBrowserWidget
     , reportBrowserError
     , refreshBrowser
     , filterBrowser
+    , searchBrowser
+    , noStyle
+    , toggleWidgetVisible
     )
 where
 
@@ -34,20 +37,24 @@ import Graphics.Vty.Widgets.Box
 import Graphics.Vty.Widgets.Fills
 import Graphics.Vty.Widgets.Util
 import Graphics.Vty.Widgets.Events
+import Graphics.Vty.Widgets.Edit
 import System.Directory
 import System.FilePath
 import System.Posix.Files
 import System.IO.Error
 
-type Header = (Box (Box FormattedText FormattedText) HFill)
+type Header = Box (Box FormattedText FormattedText) HFill
 type Footer = Box
               (Box (Box FormattedText FormattedText) HFill)
               FormattedText
 type BrowserList = List String (Box FormattedText FormattedText)
+type Filter = Box FormattedText Edit
 
 type DirBrowserWidgetType = Box
-                            Header
-                            (Box BrowserList Footer)
+                            (Box
+                             Header
+                             (Box BrowserList Footer))
+                            Filter
 
 data DirBrowser = DirBrowser { dirBrowserWidget :: Widget DirBrowserWidgetType
                              , dirBrowserList :: Widget BrowserList
@@ -56,6 +63,8 @@ data DirBrowser = DirBrowser { dirBrowserWidget :: Widget DirBrowserWidgetType
                              , dirBrowserHeader :: Widget Header
                              , dirBrowserSelectionMap :: IORef (Map.Map FilePath Int)
                              , dirBrowserFileInfo :: Widget FormattedText
+                             , dirBrowserFilter :: Widget Filter
+                             , dirBrowserFilterEdit :: Widget Edit
                              , dirBrowserFooter :: Widget Footer
                              , dirBrowserSkin :: BrowserSkin
                              , dirBrowserErrorWidget :: Widget FormattedText
@@ -135,13 +144,25 @@ newHeader bSkin = do pathWidget <- plainText T.empty
                      return (header, pathWidget)
 
 newFooter :: BrowserSkin -> IO (Widget Footer, Widget FormattedText, Widget FormattedText)
-newFooter bSkin = do errorText <- plainText T.empty >>= withNormalAttribute (browserErrorAttr bSkin)
+newFooter bSkin = do errorText <- plainText T.empty
+                                  >>= withNormalAttribute (browserErrorAttr bSkin)
                      fileInfo <- plainText T.empty
                      footer <- (plainText " "
                                 <++> return fileInfo <++> hFill ' ' 1 <++> return errorText)
                                >>= withNormalAttribute (browserHeaderAttr bSkin)
                      return (footer, fileInfo, errorText)
 
+noStyle :: Style
+noStyle = 0x00
+
+newFilter :: IO (Widget (Box FormattedText Edit), Widget Edit)
+newFilter = do e <- editWidget
+               setNormalAttribute e $ style noStyle
+               setFocusAttribute e $ style noStyle
+               filterWidget <- (plainText "Filter: ") <++> return e
+               setVisible filterWidget False
+               unfocus filterWidget
+               return (filterWidget, e)
 
 -- |Create a directory browser widget with the specified skin.
 -- Returns the browser itself along with its focus group.
@@ -151,11 +172,12 @@ newDirBrowser bSkin = do
 
   (header, pathWidget) <- newHeader bSkin
   (footer, fileInfo, errorText) <- newFooter bSkin
+  (filterWidget, filterEditWidget) <- newFilter
 
   l <- newList 1
   setSelectedUnfocusedAttr l $ Just (browserUnfocusedSelAttr bSkin)
 
-  ui <- vBox header =<< vBox l footer
+  ui <- ((return header) <--> (return l <--> return footer)) <--> return filterWidget
 
   r <- newIORef ""
   r2 <- newIORef Map.empty
@@ -169,6 +191,8 @@ newDirBrowser bSkin = do
                      , dirBrowserPath = r
                      , dirBrowserPathDisplay = pathWidget
                      , dirBrowserHeader = header
+                     , dirBrowserFilter = filterWidget
+                     , dirBrowserFilterEdit = filterEditWidget
                      , dirBrowserSelectionMap = r2
                      , dirBrowserFileInfo = fileInfo
                      , dirBrowserFooter = footer
@@ -389,18 +413,27 @@ ascend b = do
   when (newPath /= cur) $
        setDirBrowserPath b newPath
 
-filterBrowser :: DirBrowser -> String -> IO ()
+getEntries :: DirBrowser -> FilePath -> IO (Bool, [FilePath])
+getEntries b curPath = do entries <- getDirectoryContents curPath
+                          return (True, entries)
+                       `E.catch` \e -> do
+                            reportBrowserError b (T.pack $ ioeGetErrorString e)
+                            return (False, [])
+
+filterBrowser :: DirBrowser -> T.Text -> IO ()
 filterBrowser b s = do clearList (dirBrowserList b)
                        curPath <- getDirBrowserPath b
 
-                       (res, entries) <- (do
-                                             entries <- getDirectoryContents curPath
-                                             return (True, entries))
-                                         `E.catch` \e -> do
-                                             reportBrowserError b (T.pack $ ioeGetErrorString e)
-                                             return (False, [])
+                       (res, entries) <- getEntries b curPath
                        when res $
-                         load b curPath $ filter (s `L.isInfixOf`) entries
+                         load b curPath $ filter ((T.unpack s) `L.isInfixOf`) entries
+
+searchBrowser :: DirBrowser -> String -> IO ()
+searchBrowser b s = do pos <- listFindFirstBy (L.isPrefixOf s) (dirBrowserList b)
+                       case pos of
+                        Just p -> do setSelected (dirBrowserList b) p
+                        Nothing -> do return ()
+
 
 toggleWidgetVisible :: Widget a -> IO ()
 toggleWidgetVisible w = do v <- getVisible w

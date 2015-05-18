@@ -33,7 +33,9 @@ newHelpDialog c state = do
                              ,"q | Q - quit Admiral and quit this message"
                              ,"Tab   - Switch panel"
                              ,"Enter - Open selected file"
-                             ,"e     - Edit selected file in TextEdit.app"])
+                             ,"e     - Edit selected file in TextEdit.app"
+                             ,"C-f   - Filter directory browser"
+                             ,"C-s   - Search directory browser"])
   _ <- W.addToFocusGroup fg t
 
   s <- atomically $ readTVar state
@@ -86,6 +88,9 @@ main = do
   dirBrowserWidget browser1 `W.onLoseFocus` handleLoseFocus browser1
   dirBrowserWidget browser2 `W.onLoseFocus` handleLoseFocus browser2
 
+  dirBrowserFilterEdit browser1 `W.onChange` filterBrowser browser1
+  dirBrowserFilterEdit browser2 `W.onChange` filterBrowser browser2
+
   fg `W.onKeyPressed` \_ key _ ->
     if key == KChar 'q' || key == KChar 'Q'
     then newQuitDialog c state >> return True
@@ -112,16 +117,20 @@ handleGainFocus browser _ = setHeaderFooterColor browser (white `W.on` blue)
 handleLoseFocus :: DirBrowser -> W.Widget DirBrowserWidgetType -> IO ()
 handleLoseFocus browser _ = setHeaderFooterColor browser (white `W.on` black)
 
-handleBrowserInput :: W.Collection -> TVar ProgramState -> DirBrowser -> t -> Key -> [Modifier]
-                   -> IO Bool
+handleBrowserInput :: W.Collection -> TVar ProgramState -> DirBrowser -> t
+                   -> Key -> [Modifier] -> IO Bool
 handleBrowserInput collection state browser _ key modifier =
   case modifier of
    [MMeta] -> case key of KChar 'x' -> do reportBrowserError browser "M-x pressed"
                                           return True
                           _ -> return False
 
-   [MCtrl] -> case key of KChar 's' -> do newFilterDialog collection state browser
+   [MCtrl] -> case key of KChar 'f' -> do toggleWidgetVisible (dirBrowserFilter browser)
+                                          -- newFilterDialog collection state browser
                                           return True
+                          KChar 's' -> do newSearchDialog collection state browser
+                                          return True
+
                           _ -> return False
 
    _ -> case key of
@@ -135,9 +144,6 @@ handleBrowserInput collection state browser _ key modifier =
          KChar '?' -> do newHelpDialog collection state
                          return True
          _ -> return False
-
-noStyle :: Style
-noStyle = 0x00
 
 newFilterDialog :: W.Collection -> TVar ProgramState -> DirBrowser -> IO ()
 newFilterDialog collection state browser =
@@ -157,7 +163,7 @@ newFilterDialog collection state browser =
      e `W.onActivate` const (W.acceptDialog dlg)
      dlg `W.onDialogAccept` const (do currentLayout s
                                       editText <- W.getEditText e
-                                      filterBrowser browser $ T.unpack editText
+                                      filterBrowser browser editText
                                       return ())
      dlg `W.onDialogCancel` const (currentLayout s)
 
@@ -195,3 +201,27 @@ handleOnPipeKeyPressed state horizontalLayout verticalLayout _ key _ =
           Vertical  -> do atomically $ modifyTVar state (swapOrientation horizontalLayout)
                           renderCurrentLayout state
   else return False
+
+newSearchDialog :: W.Collection -> TVar ProgramState -> DirBrowser -> IO ()
+newSearchDialog collection state browser =
+  do fgT <- W.newFocusGroup
+     e <- W.editWidget
+
+     W.setNormalAttribute e $ W.style noStyle
+     W.setFocusAttribute e $ W.style noStyle
+
+     t <- W.plainText "Search for: " W.<++> return e
+     _ <- W.addToFocusGroup fgT t
+
+     (dlg, fgDialog) <- W.newDialog t "Filter"
+     fg' <- W.mergeFocusGroups fgT fgDialog
+     s <- atomically $ readTVar state
+
+     e `W.onActivate` const (W.acceptDialog dlg)
+     dlg `W.onDialogAccept` const (do currentLayout s
+                                      editText <- W.getEditText e
+                                      searchBrowser browser $ T.unpack editText
+                                      return ())
+     dlg `W.onDialogCancel` const (currentLayout s)
+
+     join (W.addToCollection collection (W.dialogWidget dlg) fg')
