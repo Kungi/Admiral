@@ -30,7 +30,7 @@ newHelpDialog c state = do
                              ,""
                              ,"?     - display this help message"
                              ,"|     - toggle orientation between horizontal and vertical"
-                             ,"q | Q - quit Admiral and quit this message"
+                             ,"C-q   - quit Admiral and quit this message"
                              ,"Tab   - Switch panel"
                              ,"Enter - Open selected file"
                              ,"e     - Edit selected file in TextEdit.app"
@@ -98,19 +98,21 @@ main = do
   dirBrowserFilterEdit browser1 `W.onChange` filterBrowser browser1
   dirBrowserFilterEdit browser2 `W.onChange` filterBrowser browser2
 
-  filter1 `W.onKeyPressed` handleCtrlFInFilter browser1
-  filter2 `W.onKeyPressed` handleCtrlFInFilter browser2
+  filter1 `W.onKeyPressed` handleFilterKey browser1
+  filter2 `W.onKeyPressed` handleFilterKey browser2
 
   fg `W.onKeyPressed` handleFocusGroupKeys state c
 
   fg `W.onKeyPressed` handleOnPipeKeyPressed state horizontalLayout verticalLayout
   W.runUi c W.defaultContext
 
-handleCtrlFInFilter :: DirBrowser -> t -> Key -> [Modifier] -> IO Bool
-handleCtrlFInFilter browser _ (KChar 'f') [MCtrl] = do W.focus (dirBrowserWidget browser)
-                                                       toggleWidgetVisible (dirBrowserFilter browser)
-                                                       return True
-handleCtrlFInFilter _ _ _ _ = do return False
+handleFilterKey :: DirBrowser -> t -> Key -> [Modifier] -> IO Bool
+handleFilterKey browser _ (KChar 'f') [MCtrl] = do W.focus (dirBrowserWidget browser)
+                                                   toggleWidgetVisible (dirBrowserFilter browser)
+                                                   return True
+handleFilterKey browser _ (KChar '\t') [] = do reportBrowserError browser "Tab pressed in filter"
+                                               return True
+handleFilterKey _ _ _ _ = do return False
 
 handleFocusGroupKeys :: TVar ProgramState -> W.Collection -> t -> Key -> [Modifier] -> IO Bool
 handleFocusGroupKeys state c _ (KChar 'q') [MCtrl] = newQuitDialog c state >> return True
