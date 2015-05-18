@@ -1,6 +1,5 @@
 {-# LANGUAGE OverloadedStrings #-}
--- |This module provides a directory browser interface widget.  For
--- full details, please see the Vty-ui User's Manual.
+-- |This module provides a directory browser interface widget.
 module KungBrowserWidget
     (DirBrowser(..)
     , BrowserSkin(..)
@@ -108,7 +107,7 @@ data BrowserSkin = BrowserSkin { browserHeaderAttr :: Attr
 -- |The default browser skin with (hopefully) sane attribute defaults.
 defaultBrowserSkin :: BrowserSkin
 defaultBrowserSkin = BrowserSkin { browserHeaderAttr = white `on` blue
-                                 , browserUnfocusedSelAttr = bgColor blue
+                                 , browserUnfocusedSelAttr = bgColor black
                                  , browserErrorAttr = white `on` red
                                  , browserDirAttr = fgColor green
                                  , browserLinkAttr = fgColor cyan

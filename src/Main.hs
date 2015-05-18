@@ -18,6 +18,32 @@ data ProgramState = ProgramState { currentOrientation :: Orientation
                                  , currentLayout :: IO ()
                                  }
 
+newHelpDialog :: W.Collection -> TVar ProgramState -> IO ()
+newHelpDialog c state = do
+  fg <- W.newFocusGroup
+  t <- W.plainText $ T.pack (unlines
+                             ["Help:"
+                             ,"====="
+                             ,""
+                             ,"Commands:"
+                             ,"---------"
+                             ,""
+                             ,"?     - display this help message"
+                             ,"|     - toggle orientation between horizontal and vertical"
+                             ,"q | Q - quit Admiral and quit this message"
+                             ,"Tab   - Switch panel"
+                             ,"Enter - Open selected file"
+                             ,"e     - Edit selected file in TextEdit.app"])
+  _ <- W.addToFocusGroup fg t
+
+  s <- atomically $ readTVar state
+  t `W.onKeyPressed` \_ key _ -> if key == KChar 'q' then
+                                   do currentLayout s
+                                      return True
+                                 else return False
+
+  join (W.addToCollection c t fg)
+
 newQuitDialog :: W.Collection -> TVar ProgramState -> IO ()
 newQuitDialog collection state =
   do fgT <- W.newFocusGroup
@@ -106,6 +132,8 @@ handleBrowserInput collection state browser _ key modifier =
                          case f of
                           Just x -> editFile browser x >> return True
                           Nothing -> return True
+         KChar '?' -> do newHelpDialog collection state
+                         return True
          _ -> return False
 
 noStyle :: Style
