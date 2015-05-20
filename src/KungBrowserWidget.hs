@@ -49,6 +49,7 @@ type Footer = Box
               FormattedText
 type BrowserList = List String (Box FormattedText FormattedText)
 type Filter = Box FormattedText Edit
+type Search = Box FormattedText Edit
 
 type DirBrowserWidgetType = Box
                              Header
@@ -63,6 +64,8 @@ data DirBrowser = DirBrowser { dirBrowserWidget :: Widget DirBrowserWidgetType
                              , dirBrowserFileInfo :: Widget FormattedText
                              , dirBrowserFilter :: Widget Filter
                              , dirBrowserFilterEdit :: Widget Edit
+                             , dirBrowserSearch :: Widget Search
+                             , dirBrowserSearchEdit :: Widget Edit
                              , dirBrowserFooter :: Widget Footer
                              , dirBrowserSkin :: BrowserSkin
                              , dirBrowserErrorWidget :: Widget FormattedText
@@ -163,21 +166,31 @@ newFilter = do e <- editWidget
                setVisible filterWidget False
                return (filterWidget, e)
 
+newSearch :: IO (Widget (Box FormattedText Edit), Widget Edit)
+newSearch = do e <- editWidget
+               setNormalAttribute e $ style noStyle
+               setFocusAttribute e $ style noStyle
+               setNormalAttribute e $ white `on` black
+               setFocusAttribute e $ white `on` black
+               searchWidget <- (plainText "Search: ") <++> return e
+               setVisible searchWidget False
+               return (searchWidget, e)
+
 -- |Create a directory browser widget with the specified skin.
 -- Returns the browser itself along with its focus group.
-newDirBrowser :: BrowserSkin -> IO (Widget Filter, DirBrowser, Widget FocusGroup)
+newDirBrowser :: BrowserSkin -> IO (Widget Filter, Widget Search, DirBrowser, Widget FocusGroup)
 newDirBrowser bSkin = do
   path <- getCurrentDirectory
 
   (header, pathWidget) <- newHeader bSkin
   (footer, fileInfo, errorText) <- newFooter bSkin
   (filterWidget, filterEditWidget) <- newFilter
+  (searchWidget, searchEditWidget) <- newSearch
 
   l <- newList 1
   setSelectedUnfocusedAttr l $ Just (browserUnfocusedSelAttr bSkin)
 
   dirBrowser <- ((return header) <--> (return l <--> return footer))
-  -- ui <- return dirBrowser <--> return filterWidget
 
   r <- newIORef ""
   r2 <- newIORef Map.empty
@@ -193,6 +206,8 @@ newDirBrowser bSkin = do
                      , dirBrowserHeader = header
                      , dirBrowserFilter = filterWidget
                      , dirBrowserFilterEdit = filterEditWidget
+                     , dirBrowserSearch = searchWidget
+                     , dirBrowserSearchEdit = searchEditWidget
                      , dirBrowserSelectionMap = r2
                      , dirBrowserFileInfo = fileInfo
                      , dirBrowserFooter = footer
@@ -213,9 +228,10 @@ newDirBrowser bSkin = do
   fg <- newFocusGroup
   _ <- addToFocusGroup fg dirBrowser
   _ <- addToFocusGroup fg filterWidget
+  _ <- addToFocusGroup fg searchWidget
 
   setDirBrowserPath b path
-  return (filterWidget, b, fg)
+  return (filterWidget, searchWidget, b, fg)
 
 -- |Report an error in the browser's error-reporting area.  Useful for
 -- reporting application-specific errors with the user's file
@@ -429,8 +445,8 @@ filterBrowser b s = do clearList (dirBrowserList b)
                        when res $
                          load b curPath $ filter ((T.unpack s) `L.isInfixOf`) entries
 
-searchBrowser :: DirBrowser -> String -> IO ()
-searchBrowser b s = do pos <- listFindFirstBy (L.isPrefixOf s) (dirBrowserList b)
+searchBrowser :: DirBrowser -> T.Text -> IO ()
+searchBrowser b s = do pos <- listFindFirstBy (L.isPrefixOf (T.unpack s)) (dirBrowserList b)
                        case pos of
                         Just p -> do setSelected (dirBrowserList b) p
                         Nothing -> do return ()
