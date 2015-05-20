@@ -98,8 +98,8 @@ main = do
   dirBrowserFilterEdit browser1 `W.onChange` filterBrowser browser1
   dirBrowserFilterEdit browser2 `W.onChange` filterBrowser browser2
 
-  dirBrowserSearchEdit browser1 `W.onChange` searchBrowser browser1
-  dirBrowserSearchEdit browser2 `W.onChange` searchBrowser browser2
+  dirBrowserSearchEdit browser1 `W.onChange` newSearch browser1
+  dirBrowserSearchEdit browser2 `W.onChange` newSearch browser2
 
   dirBrowserSearchEdit browser1 `W.onActivate` acceptSearch browser1
   dirBrowserSearchEdit browser2 `W.onActivate` acceptSearch browser2
@@ -128,8 +128,13 @@ handleFilterKey browser _ (KChar '\t') [] = do reportBrowserError browser "Tab p
 handleFilterKey _ _ _ _ = do return False
 
 handleSearchKey :: DirBrowser -> t -> Key -> [Modifier] -> IO Bool
-handleSearchKey browser _ (KChar 's') [MCtrl] = do W.focus (dirBrowserWidget browser)
-                                                   toggleWidgetVisible (dirBrowserSearch browser)
+handleSearchKey browser _ (KChar 's') [MCtrl] = do incSearchPosition browser
+                                                   t <- W.getEditText (dirBrowserSearchEdit browser)
+                                                   searchCurrentPosition browser t
+                                                   return True
+handleSearchKey browser _ (KChar 'r') [MCtrl] = do decSearchPosition browser
+                                                   t <- W.getEditText (dirBrowserSearchEdit browser)
+                                                   searchCurrentPosition browser t
                                                    return True
 handleSearchKey browser _ (KChar '\t') [] = do reportBrowserError browser "Tab pressed in search"
                                                return True
@@ -168,7 +173,9 @@ handleBrowserInput collection state browser otherBrowser _ key modifier =
    [MCtrl] -> case key of KChar 'f' -> do toggleWidgetVisible (dirBrowserFilter browser)
                                           W.focus (dirBrowserFilter browser)
                                           return True
-                          KChar 's' -> do toggleWidgetVisible (dirBrowserSearch browser)
+
+                          KChar 's' -> do resetSearchPosition browser
+                                          toggleWidgetVisible (dirBrowserSearch browser)
                                           W.focus (dirBrowserSearch browser)
                                           return True
 

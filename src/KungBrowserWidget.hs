@@ -19,9 +19,17 @@ module KungBrowserWidget
     , searchBrowser
     , noStyle
     , toggleWidgetVisible
+    , setSearchPosition
+    , resetSearchPosition
+    , searchCurrentPosition
+    , newSearch
+    , incSearchPosition
+    , decSearchPosition
     )
 where
 
+import Control.Concurrent.STM.TVar
+import Control.Monad.STM
 import Data.IORef
 import Data.Foldable
 import qualified Data.Map as Map
@@ -66,6 +74,7 @@ data DirBrowser = DirBrowser { dirBrowserWidget :: Widget DirBrowserWidgetType
                              , dirBrowserFilterEdit :: Widget Edit
                              , dirBrowserSearch :: Widget Search
                              , dirBrowserSearchEdit :: Widget Edit
+                             , dirBrowserSearchCurrentPosition :: TVar Int
                              , dirBrowserFooter :: Widget Footer
                              , dirBrowserSkin :: BrowserSkin
                              , dirBrowserErrorWidget :: Widget FormattedText
@@ -166,15 +175,16 @@ newFilter = do e <- editWidget
                setVisible filterWidget False
                return (filterWidget, e)
 
-newSearch :: IO (Widget (Box FormattedText Edit), Widget Edit)
-newSearch = do e <- editWidget
-               setNormalAttribute e $ style noStyle
-               setFocusAttribute e $ style noStyle
-               setNormalAttribute e $ white `on` black
-               setFocusAttribute e $ white `on` black
-               searchWidget <- (plainText "Search: ") <++> return e
-               setVisible searchWidget False
-               return (searchWidget, e)
+newSearchWidget :: IO (Widget (Box FormattedText Edit), Widget Edit, TVar Int)
+newSearchWidget = do e <- editWidget
+                     setNormalAttribute e $ style noStyle
+                     setFocusAttribute e $ style noStyle
+                     setNormalAttribute e $ white `on` black
+                     setFocusAttribute e $ white `on` black
+                     searchWidget <- (plainText "Search: ") <++> return e
+                     setVisible searchWidget False
+                     c <- newTVarIO 0
+                     return (searchWidget, e, c)
 
 -- |Create a directory browser widget with the specified skin.
 -- Returns the browser itself along with its focus group.
@@ -185,7 +195,7 @@ newDirBrowser bSkin = do
   (header, pathWidget) <- newHeader bSkin
   (footer, fileInfo, errorText) <- newFooter bSkin
   (filterWidget, filterEditWidget) <- newFilter
-  (searchWidget, searchEditWidget) <- newSearch
+  (searchWidget, searchEditWidget, currentSearchPosition) <- newSearchWidget
 
   l <- newList 1
   setSelectedUnfocusedAttr l $ Just (browserUnfocusedSelAttr bSkin)
@@ -208,6 +218,7 @@ newDirBrowser bSkin = do
                      , dirBrowserFilterEdit = filterEditWidget
                      , dirBrowserSearch = searchWidget
                      , dirBrowserSearchEdit = searchEditWidget
+                     , dirBrowserSearchCurrentPosition = currentSearchPosition
                      , dirBrowserSelectionMap = r2
                      , dirBrowserFileInfo = fileInfo
                      , dirBrowserFooter = footer
@@ -445,11 +456,39 @@ filterBrowser b s = do clearList (dirBrowserList b)
                        when res $
                          load b curPath $ filter ((T.unpack s) `L.isInfixOf`) entries
 
-searchBrowser :: DirBrowser -> T.Text -> IO ()
-searchBrowser b s = do pos <- listFindFirstBy (L.isPrefixOf (T.unpack s)) (dirBrowserList b)
-                       case pos of
-                        Just p -> do setSelected (dirBrowserList b) p
-                        Nothing -> do return ()
+resetSearchPosition :: DirBrowser -> IO ()
+resetSearchPosition b = do setSearchPosition b 0
+
+setSearchPosition :: DirBrowser -> Int -> IO ()
+setSearchPosition b p = do atomically $ modifyTVar (dirBrowserSearchCurrentPosition b) (const p)
+                           return ()
+
+getSearchPosition :: DirBrowser -> IO Int
+getSearchPosition b = do atomically $ readTVar (dirBrowserSearchCurrentPosition b)
+
+incSearchPosition :: DirBrowser -> IO ()
+incSearchPosition b = do a <- getSearchPosition b
+                         setSearchPosition  b (a + 1)
+                         return ()
+
+decSearchPosition :: DirBrowser -> IO ()
+decSearchPosition b = do a <- getSearchPosition b
+                         setSearchPosition  b (a - 1)
+                         return ()
+
+newSearch :: DirBrowser -> T.Text -> IO ()
+newSearch b s = do resetSearchPosition b
+                   searchCurrentPosition b s
+
+searchCurrentPosition :: DirBrowser -> T.Text -> IO ()
+searchCurrentPosition b s = do currentSearchPosition <- getSearchPosition b
+                               searchBrowser b s currentSearchPosition
+
+searchBrowser :: DirBrowser -> T.Text -> Int -> IO ()
+searchBrowser b s index = do pos <- listFindAllBy (L.isPrefixOf (T.unpack s)) (dirBrowserList b)
+                             case pos of
+                              (_:_) -> do setSelected (dirBrowserList b) (pos !! (index `mod` (length pos)))
+                              [] -> do return ()
 
 
 toggleWidgetVisible :: Widget a -> IO ()
