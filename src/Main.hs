@@ -35,7 +35,8 @@ newHelpDialog c state = do
                              ,"Enter - Open selected file"
                              ,"e     - Edit selected file in TextEdit.app"
                              ,"C-f   - Filter directory browser"
-                             ,"C-s   - Search directory browser"])
+                             ,"C-s   - Search directory browser"
+                             ,"C-c   - Copy file or directory between browsers"])
   _ <- W.addToFocusGroup fg t
 
   s <- atomically $ readTVar state
