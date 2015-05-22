@@ -179,6 +179,9 @@ handleBrowserInput collection state browser otherBrowser _ key modifier =
                                           W.focus (dirBrowserSearch browser)
                                           return True
 
+                          KChar 'c' -> do copyFromBrowserToBrowser browser otherBrowser
+                                          return True
+
                           _ -> return False
 
    _ -> case key of

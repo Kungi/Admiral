@@ -25,6 +25,7 @@ module KungBrowserWidget
     , newSearch
     , incSearchPosition
     , decSearchPosition
+    , copyFromBrowserToBrowser
     )
 where
 
@@ -50,6 +51,7 @@ import System.Directory
 import System.FilePath
 import System.Posix.Files
 import System.IO.Error
+import CopyFiles
 
 type Header = Box (Box FormattedText FormattedText) HFill
 type Footer = Box
@@ -490,7 +492,6 @@ searchBrowser b s index = do pos <- listFindAllBy (L.isPrefixOf (T.unpack s)) (d
                               (_:_) -> do setSelected (dirBrowserList b) (pos !! (index `mod` (length pos)))
                               [] -> do return ()
 
-
 toggleWidgetVisible :: Widget a -> IO ()
 toggleWidgetVisible w = do v <- getVisible w
                            setVisible w $ not v
@@ -498,3 +499,24 @@ toggleWidgetVisible w = do v <- getVisible w
 toggleHeaderAndFooter :: DirBrowser -> IO ()
 toggleHeaderAndFooter b = do toggleWidgetVisible $ dirBrowserHeader b
                              toggleWidgetVisible $ dirBrowserFooter b
+
+
+-- Only copies directories at the moment
+copyFromBrowserToBrowser :: DirBrowser -> DirBrowser -> IO ()
+copyFromBrowserToBrowser from to = do c <- currentSelection from
+                                      case c of
+                                       Just src -> do
+                                         isDirectory <- doesDirectoryExist src
+                                         if isDirectory
+                                            then do dest <- (getDirBrowserPath to)
+                                                    copyTree' src $ dest </> last (splitDirectories src)
+                                                    -- putStrLn "Directory"
+                                                    -- putStrLn $ last (splitDirectories src)
+                                                    -- putStrLn $ "Copying " ++ show src ++ " to "
+                                                    --   ++ show (dest </> last (splitDirectories src))
+                                                    return ()
+                                            else do dest <- (getDirBrowserPath to)
+                                                    -- putStrLn $ "Copying " ++ show src ++ " to " ++ show dest
+                                                    copyFile src $ dest </> last (splitPath src)
+                                                    return ()
+                                       Nothing -> return ()
